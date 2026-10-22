@@ -238,9 +238,13 @@ create_generated_clock -name clk_250mhz_mux_x0y0_u \
 #                        [get_pins pclk_i1_bufgctrl.pclk_i1/O]
                         
 #set_clock_groups -name pcieclkmux -physically_exclusive -group clk_125mhz_mux_x0y0 -group clk_250mhz_mux_x0y0_e -group clk_250mhz_mux_x0y0_u
-set_clock_groups -name pcieclkmux0 -physically_exclusive -group  [get_clocks {clk_125mhz_mux_x0y0 clk_250mhz_mux_x0y0_u}]
-set_clock_groups -name pcieclkmux1 -physically_exclusive -group  [get_clocks {clk_125mhz_mux_x0y0 clk_250mhz_mux_x0y0_e}] 
-set_clock_groups -name pcieclkmux2 -physically_exclusive -group  [get_clocks {clk_250mhz_mux_x0y0_u clk_250mhz_mux_x0y0_e}] 
+# The alternatives are exclusive with each other. A single -group would
+# instead cut their paths to every clock outside that group.
+set_clock_groups -name pcieclkmux -physically_exclusive \
+    -group [get_clocks clk_125mhz_mux_x0y0] \
+    -group [get_clocks clk_250mhz_mux_x0y0_e] \
+    -group [get_clocks clk_250mhz_mux_x0y0_u]
+
 
 #create_generated_clock -name userclk1 [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]
 
