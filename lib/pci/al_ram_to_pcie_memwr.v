@@ -157,7 +157,10 @@ always @(posedge clk) begin
      end
 
      DMA_FILL_PCIE_HDR: begin
-      if ((m_axis_tx_tready || ~m_axis_tx_tvalid) && (s_tcq_cready || ~s_tcq_cvalid)) begin
+      // Keep the old completion tag through the cycle which publishes its
+      // completion. A following header must not overwrite it on that edge.
+      if ((m_axis_tx_tready || ~m_axis_tx_tvalid) && (s_tcq_cready || ~s_tcq_cvalid) &&
+          (EARLY_CNF || !(m_axis_tx_tvalid && m_axis_tx_tlast))) begin
         m_axis_tx_tvalid <= 1'b1;
         m_axis_tx_tlast  <= 1'b0;
         dma_state        <= DMA_FILL_PCIE_ADDR;

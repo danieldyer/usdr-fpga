@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CERN-OHL-P
 // Ordered PHY commands and read responses across the converter clock boundary.
-module usdr_cal_bridge #(parameter TIMEOUT_BITS = 24)(
+module usdr_cal_bridge #(parameter TIMEOUT_BITS = 20)(
     input host_clk, input host_rst,
     input [31:0] host_data, input host_valid, output host_ready,
     output [31:0] host_rdata, output host_rvalid, input host_rready,
@@ -12,7 +12,8 @@ wire command_ready, return_valid;
 wire [31:0] return_data;
 reg fault, read_pending;
 reg [TIMEOUT_BITS-1:0] watchdog;
-// A missing converter clock must not hang a PCIe read indefinitely. Once a
+// A missing converter clock must not hang a PCIe read indefinitely.
+// 2^20 host clocks is 8.4 ms at 125 MHz, below the usual PCIe completion timeout. Once a
 // timeout occurs, quarantine this bridge until reset and return poison reads.
 // Delayed responses from the stopped clock cannot masquerade as a later read.
 assign host_ready = fault || command_ready;
