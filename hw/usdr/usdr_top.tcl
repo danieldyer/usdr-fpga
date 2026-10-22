@@ -2,7 +2,8 @@ set origin_dir [file dirname [info script]]
 set root_dir [file normalize "$origin_dir/../.."]
 set lib_dir [file normalize "$root_dir/lib"]
 
-create_project usdr $origin_dir/usdr
+if {![info exists usdr_project_dir]} {set usdr_project_dir "$origin_dir/usdr"}
+create_project usdr $usdr_project_dir
 
 set proj_dir [get_property directory [current_project]]
 set obj [get_projects usdr]
@@ -52,8 +53,7 @@ import_ip $origin_dir/ip/pcie_7x_0/pcie_7x_0.xci -quiet
 import_ip $origin_dir/ip/xfft_0/xfft_0.xci -quiet
 
 
-upgrade_ip [get_ips blk_mem_gen_nrx]
-upgrade_ip [get_ips pcie_7x_0]
+upgrade_ip [get_ips]
 
 set obj [get_filesets constrs_1]
 
@@ -63,3 +63,10 @@ set_property "file_type" "XDC" [get_files -of_objects [get_filesets constrs_1] [
 
 
 report_ip_status
+
+# Apply implementation CDC skew constraints after synthesis has established
+# concrete Gray register endpoints. Clock-group false paths do not override skew.
+set cdc_xdc [file normalize "$origin_dir/usdr_cdc.xdc"]
+add_files -norecurse -fileset constrs_1 $cdc_xdc
+set_property USED_IN_SYNTHESIS false [get_files $cdc_xdc]
+set_property PROCESSING_ORDER LATE [get_files $cdc_xdc]

@@ -192,18 +192,25 @@ wire       rxclk_stream_rst;
 wire       dsp_strem_rst;
 wire       igp_stream_rst;
 
+wire rx_cal_rst, tx_cal_rst;
+synchronizer #(.INIT(1), .ASYNC_RESET(1)) rx_cal_reset (.clk(rxclk_f_clk), .rst(igp_rst), .a_in(igp_rst), .s_out(rx_cal_rst));
+synchronizer #(.INIT(1), .ASYNC_RESET(1)) tx_cal_reset (.clk(txclk_m_clk), .rst(igp_rst), .a_in(igp_rst), .s_out(tx_cal_rst));
+reg have_i;
 reg [23:0] rxd_demux_data;
 reg        rxd_demux_valid;
 
 always @(posedge rxclk_f_clk) begin
-  if (rxclk_stream_rst) begin
+  if (rx_cal_rst) begin
+    have_i <= 0;
     rxd_demux_valid <= 1'b0;
   end else begin
     if (rxd_iob_iqsel) begin
       rxd_demux_data[23:12] <= rxd_iob_data;
-      rxd_demux_valid       <= 1'b1;
+      rxd_demux_valid       <= have_i;
+      have_i <= 0;
     end else begin
       rxd_demux_data[11:0]  <= rxd_iob_data;
+      have_i <= 1;
       rxd_demux_valid       <= 1'b0;
     end
   end
@@ -217,16 +224,24 @@ reg [11:0]  txd_iob_data_s;
 reg         txd_iob_iqsel_s;
 assign txd_iob_data   = txd_iob_data_s;
 assign txd_iob_iqsel  = txd_iob_iqsel_s;
-assign dac_fifo_ready = txd_iob_iqsel_s;
+wire app_txd_enable, tx_stream_enable, test_enabled;
+synchronizer #(.INIT(0)) tx_stream_sync (
+ .clk(txclk_m_clk), .rst(tx_cal_rst), .a_in(app_txd_enable), .s_out(tx_stream_enable));
+wire [31:0] test_data;
+reg [11:0] tx_q;
+assign txd_enable = tx_stream_enable || test_enabled;
+assign dac_fifo_ready = txd_iob_iqsel_s && !test_enabled;
 
 always @(posedge txclk_m_clk) begin
-    if (~txd_enable) begin
+    if (tx_cal_rst || ~txd_enable) begin
+        tx_q <= 0;
         txd_iob_data_s  <= 0;
         txd_iob_iqsel_s <= 0;
     end else begin
-        if (dac_fifo_valid) begin
+        if (test_enabled || dac_fifo_valid) begin
             txd_iob_iqsel_s <= ~txd_iob_iqsel_s;
-            txd_iob_data_s  <= (txd_iob_iqsel_s) ? dac_fifo_data[31:20] : dac_fifo_data[15:4];
+            txd_iob_data_s <= txd_iob_iqsel_s ? tx_q : (test_enabled ? test_data[15:4] : dac_fifo_data[15:4]);
+            if (!txd_iob_iqsel_s) tx_q <= test_enabled ? test_data[31:20] : dac_fifo_data[31:20];
         end
     end
 end
@@ -255,7 +270,7 @@ axis_cc_fifo #(
     .s_rx_tready(),
 
     .tx_clk(dsp_clk),
-    .tx_rst(dsp_rst),
+    .tx_rst(dsp_prog_rst),
 
     .m_tx_tdata(dsp_dspchain_prg_data),
     .m_tx_tvalid(dsp_dspchain_prg_valid),
@@ -264,7 +279,7 @@ axis_cc_fifo #(
 
 wire [31:0] dsp_data;
 wire        dsp_valid;
-wire        dsp_ready = 1'b1;
+wire        dsp_ready;
 
 
 // RX cross clock chain  (reset -- source rx_streaming)
@@ -275,7 +290,7 @@ wire       rx_streaming;
 reg        rx_str_rst;
 assign igp_stream_rst = rx_str_rst;
 always @(posedge igp_clk) begin
-    if (igpdspcfg_rst/*igp_rst*/) begin
+    if (igp_rst || igpdspcfg_rst) begin
         rx_str_rst <= 1'b1;
     end else begin
         rx_str_rst <= !rx_streaming;
@@ -285,21 +300,58 @@ end
 synchronizer  #(.INIT(1), .ASYNC_RESET(0)) rxclk_stream_rst_sync  (.clk(rxclk_f_clk), .rst(0), .a_in(dsp_strem_rst),  .s_out(rxclk_stream_rst));
 synchronizer  #(.INIT(1), .ASYNC_RESET(0)) dsp_strem_rst_sync     (.clk(dsp_clk),     .rst(0), .a_in(igp_stream_rst), .s_out(dsp_strem_rst));
 
+// Single-channel correction and finite measurement controls on existing PHY ports.
+wire cal_host_clk, cal_host_rst;
+wire [31:0] cal_host_data;
+wire [1:0] cal_wvalid, cal_wready, cal_rvalid, cal_rready;
+wire [63:0] cal_rdata;
+wire [31:0] rx_cmd, tx_cmd, rx_result;
+wire rx_cmd_valid, tx_cmd_valid;
+wire [31:0] raw_data = {rxd_demux_data[23:12],4'b0,rxd_demux_data[11:0],4'b0};
+wire [31:0] corrected_data;
+wire corrected_valid, corrected_clip, adc_overflow, host_overflow;
+usdr_cal_bridge rx_bridge (
+ .host_clk(cal_host_clk), .host_rst(cal_host_rst), .host_data(cal_host_data),
+ .host_valid(cal_wvalid[0]), .host_ready(cal_wready[0]),
+ .host_rdata(cal_rdata[31:0]), .host_rvalid(cal_rvalid[0]), .host_rready(cal_rready[0]),
+ .cal_clk(rxclk_f_clk), .cal_rst(rx_cal_rst), .cmd(rx_cmd), .cmd_valid(rx_cmd_valid), .result(rx_result));
+usdr_cal_bridge tx_bridge (
+ .host_clk(cal_host_clk), .host_rst(cal_host_rst), .host_data(cal_host_data),
+ .host_valid(cal_wvalid[1]), .host_ready(cal_wready[1]),
+ .host_rdata(cal_rdata[63:32]), .host_rvalid(cal_rvalid[1]), .host_rready(cal_rready[1]),
+ .cal_clk(txclk_m_clk), .cal_rst(tx_cal_rst), .cmd(tx_cmd), .cmd_valid(tx_cmd_valid), .result(32'b0));
+usdr_iq_matrix rx_matrix (
+ .clk(rxclk_f_clk), .rst(rx_cal_rst), .cmd(rx_cmd), .cmd_valid(rx_cmd_valid),
+ .in_data(raw_data), .in_valid(rxd_demux_valid),
+ .out_data(corrected_data), .out_valid(corrected_valid), .clipped(corrected_clip));
+usdr_rx_measure measure (
+ .clk(rxclk_f_clk), .rst(rx_cal_rst), .cmd(rx_cmd), .cmd_valid(rx_cmd_valid), .result(rx_result),
+ .raw_data(raw_data), .raw_valid(rxd_demux_valid),
+ .iq_data(corrected_data), .iq_valid(corrected_valid), .iq_clipped(corrected_clip));
+usdr_tx_test test_generator (
+ .clk(txclk_m_clk), .rst(tx_cal_rst), .advance(txd_iob_iqsel_s),
+ .cmd(tx_cmd), .cmd_valid(tx_cmd_valid), .enabled(test_enabled), .data(test_data));
+synchronizer #(.INIT(0)) overflow_sync (
+ .clk(igp_clk), .rst(igp_rst), .a_in(adc_overflow), .s_out(host_overflow));
+assign intgpi[16*8 +: 32] = {31'b0, host_overflow};
+assign intgpi[IGPI_DC_CORR_VAL*8 +: 32] = 0; // No digital DC subtraction.
+
 rx_dsp_chain #(
-    .ADC_WIDTH(12),
+    .ADC_WIDTH(16),
     .CFG_WIDTH(8),
     .STAGES(8),
-    .DC_CORR(1),
+    .DC_CORR(0),
     .CORDIC(0)
 ) dsp_chain (
     .adc_clk(rxclk_f_clk),
     .adc_rst(rxclk_stream_rst),
-    .adc_data(rxd_demux_data),
-    .adc_valid(rxd_demux_valid),
+    .adc_data(corrected_data),
+    .adc_valid(corrected_valid && !rxclk_stream_rst),
+    .adc_overflow(adc_overflow),
     .adc_dsp_cordic_phase(0),
 
-    .adc_dc_corr_en(intgpo[IGPO_DCCORR * 8 + 0]),
-    .adc_dc_corr_vals(intgpi[IGPI_DC_CORR_VAL * 8 + 31 : IGPI_DC_CORR_VAL * 8 + 0]),
+    .adc_dc_corr_en(1'b0),
+    .adc_dc_corr_vals(),
 
     .dsp_clk(dsp_clk),
     .dsp_rst(dsp_strem_rst),
@@ -323,7 +375,7 @@ axis_cc_fifo #(
 
     .s_rx_tdata( dsp_data ),
     .s_rx_tvalid( dsp_valid ),
-    .s_rx_tready(),
+    .s_rx_tready(dsp_ready),
 
     .tx_clk(igp_clk),
     .tx_rst(igp_stream_rst),
@@ -487,15 +539,17 @@ usdr_app_generic_us #(
     .dac_realigned(dac_fifo_data),
     .dac_fifo_valid(dac_fifo_valid),
     .tx_ready(dac_fifo_ready),
-    .tx_streaming(txd_enable),
+    .tx_streaming(app_txd_enable),
 
-    .cfg_port_wvalid(),
-    .cfg_port_wready(2'b11),
-    .cfg_port_wdata(),
+    .cfg_port_wvalid(cal_wvalid),
+    .cfg_port_wready(cal_wready),
+    .cfg_port_wdata(cal_host_data),
 
-    .cfg_port_rvalid(2'b11),
-    .cfg_port_rready(),
-    .cfg_port_rdata({ cntr_txclk_m_clk,  cntr_rxclk_f_clk }),
+    .cfg_port_rvalid(cal_rvalid),
+    .cfg_port_rready(cal_rready),
+    .cfg_port_rdata(cal_rdata),
+    .cfg_port_clk(cal_host_clk),
+    .cfg_port_rst(cal_host_rst),
 
     .prst(igp_rst),
     .pclk(igp_clk),

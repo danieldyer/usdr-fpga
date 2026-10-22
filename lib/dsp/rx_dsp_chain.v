@@ -18,6 +18,7 @@ module rx_dsp_chain #(
     input                        adc_rst,
     input [ADC_WIDTH * 2 - 1:0]  adc_data,
     input                        adc_valid,
+    output reg                   adc_overflow,
     input [DSPPHASE_WIDTH-1:0]   adc_dsp_cordic_phase,
 
     input                        adc_dc_corr_en,
@@ -55,7 +56,7 @@ wire [DSP_WIDTH - 1:0] adc_data_ext_q = adc_data_q << (DSP_WIDTH - ADC_WIDTH);
 
 wire [DSP_WIDTH - 1:0] adc_dccorr_i;
 wire [DSP_WIDTH - 1:0] adc_dccorr_q;
-wire [DSP_WIDTH - 1:0] adc_dccorr_valid;
+wire adc_dccorr_valid;
 
 // DC offset digital correction
 generate
@@ -122,7 +123,7 @@ generate
 
         assign ncoo_adcclk_data = { ncoo_adcclk_data_native[30:16], 1'b0, ncoo_adcclk_data_native[14:0], 1'b0 };
     end else begin
-        assign ncoo_adcclk_valid = adc_valid;
+        assign ncoo_adcclk_valid = adc_dccorr_valid;
         //assign ncoo_adcclk_data[DSP_WIDTH - 1:0]           = {adc_data[ADC_WIDTH - 1: 0],           {(DSP_WIDTH - ADC_WIDTH){1'b0}} };
         //assign ncoo_adcclk_data[2*DSP_WIDTH - 1:DSP_WIDTH] = {adc_data[ADC_WIDTH*2 - 1: ADC_WIDTH], {(DSP_WIDTH - ADC_WIDTH){1'b0}} };
 
@@ -134,6 +135,15 @@ wire [2 * DSP_WIDTH - 1:0] ncoo_dspclk_data;
 wire                       ncoo_dspclk_valid;
 wire                       ncoo_dspclk_ready;
 
+wire adc_ready;
+reg adc_armed;
+always @(posedge adc_clk) begin
+    if (adc_rst) begin adc_overflow <= 0; adc_armed <= 0; end
+    else begin
+        if (adc_ready) adc_armed <= 1;
+        if (adc_armed && ncoo_adcclk_valid && !adc_ready) adc_overflow <= 1;
+    end
+end
 axis_cc_fifo #(
     .WIDTH(DSP_WIDTH * 2),
     .DEEP_BITS(5)
@@ -142,8 +152,8 @@ axis_cc_fifo #(
     .rx_rst(adc_rst),
 
     .s_rx_tdata(ncoo_adcclk_data),
-    .s_rx_tvalid(ncoo_adcclk_valid),
-    .s_rx_tready(),
+    .s_rx_tvalid(ncoo_adcclk_valid && !adc_rst && adc_armed),
+    .s_rx_tready(adc_ready),
 
     .tx_clk(dsp_clk),
     .tx_rst(dsp_rst),
@@ -158,7 +168,8 @@ reconf_dsp_fir #(
     .CHANS(CHANS),
     .OUT_WIDTH(DSP_WIDTH),
     .CFG_WIDTH(CFG_WIDTH),
-    .STAGES(STAGES)
+    .STAGES(STAGES),
+    .BACKPRESSURE(1)
 ) reconf (
     .rst(dsp_rst),
     .clk(dsp_clk),

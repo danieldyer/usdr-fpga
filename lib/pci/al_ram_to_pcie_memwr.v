@@ -137,6 +137,11 @@ always @(posedge clk) begin
       s_tcq_cvalid <= 1'b0;
     end
 
+    // Completion means the last payload beat has left this engine. A beat
+    // merely loaded into the output register may still be stalled indefinitely.
+    if (!EARLY_CNF && m_axis_tx_tvalid && m_axis_tx_tready && m_axis_tx_tlast)
+        s_tcq_cvalid <= 1'b1;
+
     case (dma_state)
      DMA_RAM_LOAD: begin
       if (s_tcq_valid && ~s_tcq_ready && can_send_fc) begin //do we need ~m_al_arvalid?
@@ -209,9 +214,6 @@ always @(posedge clk) begin
             pcie_pkt_last      <= m_al_rid;
         end
 
-        if (!EARLY_CNF && (m_al_rid && (pcie_64bit_act || ~pcie_pkt_last))) begin
-            s_tcq_cvalid     <= 1'b1;
-        end
 
         if (pcie_64bit_act && m_al_rid || (!pcie_64bit_act && pcie_pkt_last)) begin
           if (s_tcq_valid && ~s_tcq_ready && can_send_fc) begin

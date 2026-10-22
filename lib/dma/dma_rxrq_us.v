@@ -347,7 +347,7 @@ wire tag_avaliable = m_tcq_cvalid || !req_tag_busy;
 wire [TBUFFER_WIDTH:12] dma_buf_orun    =  {1'b0, cfg_dma_buf_limit_z} - dma_buffer_req_sent[TBUFFER_WIDTH:12];
 wire                    dma_no_space    =  dma_buf_orun[TBUFFER_WIDTH];
 
-wire      mem_wr_event = !dma_no_space && !interrupts_busy && ~inplace_cnf_valid && ~m_tcq_valid && dma_buff_avail && (pcie_transfer_avail || pcie_transfer_done) && ~full_buffer_filled_z_reset && tag_avaliable && stat_cycle_valid && dma_cycle_valid;
+wire      mem_wr_event = !stop_rx && !dma_no_space && !interrupts_busy && ~inplace_cnf_valid && ~m_tcq_valid && dma_buff_avail && (pcie_transfer_avail || pcie_transfer_done) && ~full_buffer_filled_z_reset && tag_avaliable && stat_cycle_valid && dma_cycle_valid;
 
 
 // DMA control and PCIe data movement process
@@ -397,13 +397,17 @@ always @(posedge clk) begin
     end
 
     if (~dma_en) begin
-      m_tcq_laddr         <= 0;
-      dma_buffer_req_sent <= 0;
-      dma_transferred     <= 0;
-      req_tag_busy        <= 1'b0;
+      // Preserve an accepted request and its address until its final payload
+      // has drained. A stop must not clear the outstanding tag or alter a
+      // stalled descriptor. Restart is allowed only after this drain.
+      if (!req_tag_busy && !m_tcq_valid) begin
+        m_tcq_laddr         <= 0;
+        dma_buffer_req_sent <= 0;
+        dma_transferred     <= 0;
+      end
       inplace_cnf_valid   <= 1'b0;
 
-      if (start_rx) begin
+      if (start_rx && !req_tag_busy && !m_tcq_valid) begin
         dma_en            <= 1'b1;
         req_trans_last    <= 1'b1;
       end
@@ -456,7 +460,7 @@ assign axis_stat_data[15:DMA_BUF_BITS+9]  = fe_stat[3:2];
 assign axis_stat_data[DMA_BUF_BITS+16:16] = dbno_inram;
 assign axis_stat_data[23:DMA_BUF_BITS+17] = fe_stat[5:4];
 assign axis_stat_data[DMA_BUF_BITS+24:24] = dbno_ntfysent;
-assign axis_stat_data[31:DMA_BUF_BITS+25] = { rx_streamingready, dma_en };
+assign axis_stat_data[31:DMA_BUF_BITS+25] = { (dma_en ? rx_streamingready : (req_tag_busy || m_tcq_valid)), dma_en };
 
 
 endmodule

@@ -1316,7 +1316,7 @@ al_ram_to_pcie_memwr #(
     .DATA_BITS(DATA_BITS),
     .ULTRA_SCALE(ULTRA_SCALE),
     .TX_BUF_CTRL(1'b1),
-    .EARLY_CNF(1)
+    .EARLY_CNF(0) // Required for DMA stop/drain and completion ordering.
 ) pcie_ram_to_rq_memwr (
     .clk(hclk),
     .rst(hrst),
@@ -2352,9 +2352,9 @@ assign axis_wr_lbdsp_ready = 1'b1;
 
 // CFG PHY
 assign axis_wr_cfg_phy_0_ready = cfg_port_wready[0];
-assign axis_wr_cfg_phy_1_ready = cfg_port_wready[1];
-assign cfg_port_wvalid = { axis_wr_cfg_phy_1_valid, axis_wr_cfg_phy_0_valid };
-assign cfg_port_wdata = axis_wr_cfg_phy_0_data;
+assign axis_wr_cfg_phy_1_ready = cfg_port_wready[1] && !axis_wr_cfg_phy_0_valid;
+assign cfg_port_wvalid = { axis_wr_cfg_phy_1_valid && !axis_wr_cfg_phy_0_valid, axis_wr_cfg_phy_0_valid };
+assign cfg_port_wdata = axis_wr_cfg_phy_0_valid ? axis_wr_cfg_phy_0_data : axis_wr_cfg_phy_1_data;
 
 assign cfg_port_rready = { axis_rd_cfg_phy_1_ready, axis_rd_cfg_phy_0_ready };
 assign axis_rd_cfg_phy_0_valid = cfg_port_rvalid[0];

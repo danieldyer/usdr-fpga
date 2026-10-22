@@ -1,0 +1,35 @@
+Rev3 uSDR essential receive build
+================================
+Part: XC7A35T-2CPG236C (XC7A35T-CPG236-2 in Vivado).
+Use the paired usdr-lib dd/essential-rx-fixes branch. No register negotiation is
+added; keep the bitstream, library and kernel driver together.
+
+With Vivado on PATH:
+  python3 scripts/build_usdr.py /absolute/new/output --role ram --jobs 4
+
+The script hashes source inputs, records the Git revision/diff and tool version,
+upgrades imported IP in the output project, and runs synthesis/route/bitstream.
+It saves timing, utilization, CDC, bus-skew, DRC and methodology reports. It does
+not connect to a board or write flash. A failed run retains its diagnostics.
+
+ram disables automatic reboot/watchdog for a volatile bring-up image. operational
+uses the existing operational timer setting; golden retains the original project
+fallback settings and next-image address 0x1c0000. Never flash a ram build or write
+the golden slot as part of an ordinary test. Decide recovery/programming separately.
+
+The original project clock constraints remain conservative at 200 MHz for RF I/O.
+Per-counter Gray-bus skew assertions supplement the asynchronous false paths.
+The RFIC's published digital timing table is for 3.3 V, while rev3 uses lower I/O
+voltage. RF input/output delays and sampling margin therefore still need target
+characterization; passing internal timing is not RF interface timing signoff.
+Review all unconstrained endpoints, CDC warnings and skew reports before use.
+
+Run tests/run_rx_tests.sh with Icarus Verilog/vvp. These exercise real RTL under
+clock loss, output stalls, measurement clipping and DMA stop/drain. The DMA stop
+unit injects a pending descriptor; it is not a PCIe link-level simulation. No
+analog performance or PCIe throughput claim follows from these simulations.
+
+The FPGA applies optional IQ matrix correction and provides finite raw-DC/tone
+measurements to the host. It does not subtract DC or continuously tune the RFIC.
+The TX DDS is enabled only for explicit IQ calibration. Production reception
+uses native signed CI16 and reports ADC FIFO overflow as an unrecoverable gap.
