@@ -201,18 +201,22 @@ DSP48E1 #(
 	.CARRYIN(1'b0),                   // 1-bit input: Carry input signal
 	.D(s_adb_data[24+18:18]),         // 25-bit input: D data input
 
+    // Intermediate registers may advance through invalid bubbles. The input
+    // and P registers retain valid gating, so bubbles cannot alter a result;
+    // all pipeline stages still hold together under backpressure. Avoid a
+    // redundant valid gate on the timing-critical internal clock enables.
 	.CEA1(dspr_stall_n && 1'b0),                      // 1-bit input: Clock enable input for 1st stage AREG
 	.CEA2(dspr_stall_n && stage_valid[0]),            // 1-bit input: Clock enable input for 2nd stage AREG
-	.CEAD(dspr_stall_n && stage_valid[1]),            // 1-bit input: Clock enable input for ADREG
-	.CEALUMODE(dspr_stall_n && stage_valid[2]),       // 1-bit input: Clock enable input for ALUMODE
+	.CEAD(dspr_stall_n),            // 1-bit input: Clock enable input for ADREG
+	.CEALUMODE(dspr_stall_n),       // 1-bit input: Clock enable input for ALUMODE
 	.CEB1(dspr_stall_n && stage_valid[0]),            // 1-bit input: Clock enable input for 1st stage BREG
-	.CEB2(dspr_stall_n && stage_valid[1]),            // 1-bit input: Clock enable input for 2nd stage BREG
+	.CEB2(dspr_stall_n),            // 1-bit input: Clock enable input for 2nd stage BREG
 	.CEC(dspr_stall_n && s_c_valid),                  // 1-bit input: Clock enable input for CREG
-	.CECARRYIN(dspr_stall_n && stage_valid[2]),       // 1-bit input: Clock enable input for CARRYINREG
-	.CECTRL(dspr_stall_n && stage_valid[2]),          // 1-bit input: Clock enable input for OPMODEREG and CARRYINSELREG
+	.CECARRYIN(dspr_stall_n),       // 1-bit input: Clock enable input for CARRYINREG
+	.CECTRL(dspr_stall_n),          // 1-bit input: Clock enable input for OPMODEREG and CARRYINSELREG
 	.CED(dspr_stall_n && stage_valid[0]),             // 1-bit input: Clock enable input for DREG
 	.CEINMODE(dspr_stall_n && stage_valid[0]),        // 1-bit input: Clock enable input for INMODEREG
-	.CEM(dspr_stall_n && stage_valid[2]),             // 1-bit input: Clock enable input for MREG
+	.CEM(dspr_stall_n),             // 1-bit input: Clock enable input for MREG
 	.CEP(glob_stall_n && stage_valid[3]),             // 1-bit input: Clock enable input for PREG
 
 	.RSTA(rst_dsp),                   // 1-bit input: Reset input for AREG

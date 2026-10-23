@@ -29,6 +29,12 @@ clock loss, output stalls, measurement clipping and DMA stop/drain. The DMA stop
 unit injects a pending descriptor; it is not a PCIe link-level simulation. No
 analog performance or PCIe throughput claim follows from these simulations.
 
+Run tests/run_dsp_enable_test.sh for the DSP clock-enable equivalence test
+against the original wrapper. It covers all FIR operations, random valid gaps,
+stalls and resets in four configurations (800000 simulated clock cycles).
+Set DSP48_MODEL to $XILINX_VIVADO/data/verilog/src/unisims/DSP48E1.v to use
+AMD's primitive model; otherwise it uses the repository's simulation model.
+
 The FPGA applies optional IQ matrix correction and provides finite raw-DC/tone
 measurements to the host. It does not subtract DC or continuously tune the RFIC.
 The TX DDS is enabled only for explicit IQ calibration. Production reception
