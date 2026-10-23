@@ -5,7 +5,8 @@
 module reconf_dsp_ready #(parameter STAGES=8)(
     input clk,
     input [STAGES-1:0] bypass_next,
-    input [STAGES-1:0] local_ready,
+    input [STAGES-1:0] dsp_ready,
+    input last_bypass_ready,
     output [STAGES-1:0] group_ready
 );
 function [STAGES-1:0] select_stage;
@@ -24,8 +25,14 @@ function [STAGES-1:0] select_stage;
 endfunction
 genvar i;
 generate for(i=0;i<STAGES;i=i+1) begin: stage
-    reg [STAGES-1:0] selected;
-    always @(posedge clk) selected <= select_stage(bypass_next, i);
-    assign group_ready[i] = |(selected & local_ready);
+    wire [STAGES-1:0] mask = select_stage(bypass_next, i);
+    reg [STAGES-1:0] selected_dsp;
+    reg selected_bypass;
+    always @(posedge clk) begin
+        selected_dsp <= mask & ~bypass_next;
+        selected_bypass <= mask[STAGES-1] && bypass_next[STAGES-1];
+    end
+    assign group_ready[i] = |(selected_dsp & dsp_ready) ||
+                           (selected_bypass && last_bypass_ready);
 end endgenerate
 endmodule

@@ -172,20 +172,20 @@ create_clock -name lms_txclk -period 5  [get_ports txclk_ref]
 create_clock -name sysref_clk -period 10 [get_ports sys_clk_p]
 
 
-# The rev3 project fixes PCIE_INIT_ONLY=1 and removes the USB data core.
-# Both Gen1 and Gen2 pipe rates remain timed, as does the 250 MHz DSP clock.
-create_generated_clock -name clk_125mhz_x0y0_e \
-    -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
-    [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0]
-create_generated_clock -name clk_250mhz_x0y0_e \
-    -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
-    [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT1]
-create_generated_clock -name userclk1 \
-    -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
-    [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]
-create_generated_clock -name clk_dsp_e \
-    -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
-    [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT6]
+
+# Rename both MMCM input alternatives without changing their generated ratios.
+create_generated_clock -name clk_125mhz_x0y0_e -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0]
+create_generated_clock -name clk_125mhz_x0y0_u -master_clock usb_clk [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0]
+create_generated_clock -name clk_250mhz_x0y0_e -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT1]
+create_generated_clock -name clk_250mhz_x0y0_u -master_clock usb_clk [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT1]
+create_generated_clock -name userclk1 -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]
+create_generated_clock -name userclk1_u -master_clock usb_clk [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]
+create_generated_clock -name clk_dsp_e -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT6]
+create_generated_clock -name clk_dsp_u -master_clock usb_clk [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT6]
+
+# PCLK and DCLK BUFG enables are startup_mode_pcie. They are stopped in USB
+# mode, so USB-derived clocks cannot propagate into the PCIe hard core.
+# Define the live PCIe alternatives explicitly at these gated buffer outputs.
 create_generated_clock -name clk_125mhz_mux_x0y0 \
     -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I0] \
     -master_clock clk_125mhz_x0y0_e -divide_by 1 -add \
@@ -194,14 +194,21 @@ create_generated_clock -name clk_250mhz_mux_x0y0_e \
     -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I1] \
     -master_clock clk_250mhz_x0y0_e -divide_by 1 -add \
     [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/O]
+create_generated_clock -name dclk_pcie \
+    -source [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0] \
+    -master_clock clk_125mhz_x0y0_e -divide_by 1 -add \
+    [get_pins xilinx_pci_mmcm/dclk_i_bufg.dclk_i/O]
 set_clock_groups -name pcieclkmux -physically_exclusive \
     -group clk_125mhz_mux_x0y0 -group clk_250mhz_mux_x0y0_e
+# Every downstream MMCM output belongs to the same selected input mode.
+set_clock_groups -name transport_modes -physically_exclusive \
+    -group [get_clocks {clk_125mhz_x0y0_e clk_250mhz_x0y0_e clk_125mhz_mux_x0y0 clk_250mhz_mux_x0y0_e dclk_pcie userclk1 clk_dsp_e}] \
+    -group [get_clocks {clk_125mhz_x0y0_u clk_250mhz_x0y0_u userclk1_u clk_dsp_u}]
 
-# FIFO and ordered command bridges join the independent RF domains.
-set_clock_groups -asynchronous \
-    -group lms_rxclk -group lms_txclk \
-    -group [get_clocks {userclk1 clk_dsp_e clk_125mhz_x0y0_e clk_250mhz_x0y0_e clk_125mhz_mux_x0y0 clk_250mhz_mux_x0y0_e}]
-# The existing host/DSP boundary also uses asynchronous FIFOs. Gray buses
-# receive separate bus-skew limits in usdr_cdc.tcl.
-set_false_path -from [get_clocks userclk1] -to [get_clocks clk_dsp_e]
-set_false_path -from [get_clocks clk_dsp_e] -to [get_clocks userclk1]
+# RF and configuration-clock crossings use explicit synchronizers/FIFOs.
+set_clock_groups -asynchronous -group cfg_mclk -group lms_rxclk -group lms_txclk \
+    -group [get_clocks {usb_clk userclk1 userclk1_u clk_dsp_e clk_dsp_u clk_125mhz_x0y0_e clk_125mhz_x0y0_u clk_250mhz_x0y0_e clk_250mhz_x0y0_u clk_125mhz_mux_x0y0 clk_250mhz_mux_x0y0_e dclk_pcie}]
+# Host/DSP and host/ULPI interfaces use asynchronous FIFOs even when their
+# clocks share a source. Gray buses are separately bounded in usdr_cdc.tcl.
+set_false_path -from [get_clocks {userclk1 userclk1_u}] -to [get_clocks {clk_dsp_e clk_dsp_u usb_clk}]
+set_false_path -from [get_clocks {clk_dsp_e clk_dsp_u usb_clk}] -to [get_clocks {userclk1 userclk1_u}]

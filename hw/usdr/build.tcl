@@ -14,7 +14,7 @@ set manifest [open "$output/build.txt" w]
 puts $manifest "Vivado: [version -short]"
 puts $manifest "Part: xc7a35tcpg236-2"
 puts $manifest "Role: $role"
-puts $manifest "Interface: PCIe only (USB2_PRESENT=0, PCIE_INIT_ONLY=1)"
+puts $manifest "Interface: PCIe receive; original USB core and startup fallback retained"
 puts $manifest "Source: $here"
 puts $manifest "UTC: [clock format [clock seconds] -gmt 1 -format {%Y-%m-%dT%H:%M:%SZ}]"
 close $manifest

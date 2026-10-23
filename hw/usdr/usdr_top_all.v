@@ -698,6 +698,20 @@ wire [1:0] s_axis_tx_tkeep_32;
 assign s_axis_tx_tkeep = {{4{s_axis_tx_tkeep_32[1]}}, {4{s_axis_tx_tkeep_32[0]}}};
 
 
+// Register PCIe RX backpressure without dropping packet or BAR metadata.
+// This keeps the original USB recovery core without its ready path reaching
+// through the application into the PCIe hard-IP receive pipeline.
+wire [63:0] app_rx_data;
+wire [1:0] app_rx_keep;
+wire [6:0] app_rx_bar;
+wire app_rx_last, app_rx_valid, app_rx_ready;
+axis_fifo_trd #(.WIDTH(74)) pcie_rx_buffer(
+    .clk(user_clk_pcie), .rst(user_reset_q),
+    .s_rx_tdata({rx_bar_hit, m_axis_rx_tlast, m_axis_rx_tkeep[4], m_axis_rx_tkeep[0], m_axis_rx_tdata}),
+    .s_rx_tvalid(m_axis_rx_tvalid), .s_rx_tready(m_axis_rx_tready),
+    .m_tx_tdata({app_rx_bar, app_rx_last, app_rx_keep, app_rx_data}),
+    .m_tx_tvalid(app_rx_valid), .m_tx_tready(app_rx_ready));
+
 app_usdr_pcie #(
     .MASTER_BUS_SPEED(MASTER_BUS_SPEED),
     .I2C_SPEED(I2C_SPEED),
@@ -707,12 +721,12 @@ app_usdr_pcie #(
     .gclk_master(user_clk_pcie),
     .reset(user_reset_q),
 
-    .s_axis_rx_tdata(m_axis_rx_tdata),
-    .s_axis_rx_tkeep({m_axis_rx_tkeep[4], m_axis_rx_tkeep[0]}),
-    .s_axis_rx_tlast(m_axis_rx_tlast),
-    .s_axis_rx_tvalid(m_axis_rx_tvalid),
-    .s_axis_rx_tready(m_axis_rx_tready),
-    .pcie_rx_bar_hit(rx_bar_hit),
+    .s_axis_rx_tdata(app_rx_data),
+    .s_axis_rx_tkeep(app_rx_keep),
+    .s_axis_rx_tlast(app_rx_last),
+    .s_axis_rx_tvalid(app_rx_valid),
+    .s_axis_rx_tready(app_rx_ready),
+    .pcie_rx_bar_hit(app_rx_bar),
 
     .m_axis_tx_tready(s_axis_tx_tready),
     .m_axis_tx_tdata(s_axis_tx_tdata),

@@ -40,8 +40,6 @@ add_files -norecurse -fileset $obj [list \
 
 set_property include_dirs $root_dir/hw/ $obj
 set_property "top" "usdr_top_all" $obj
-# This project is the PCIe-only rev3 build; keep the top-level defaults reusable.
-set_property generic {USB2_PRESENT=0 PCIE_INIT_ONLY=1} $obj
 
 
 if {[string equal [get_filesets -quiet constrs_1] ""]} {

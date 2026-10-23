@@ -72,11 +72,11 @@ assign csscade_data_r[STAGES] = out_ready;
 assign out_data = cascade_data[IN_WIDTH * CHANS * (STAGES + 1) - 1:IN_WIDTH * CHANS * STAGES];
 
 wire  [STAGES-1:0] elem_omux;
-wire  [STAGES  :0] exe_cready;
-assign exe_cready[STAGES] = out_ready;
-wire [STAGES-1:0] bypass_next, local_ready;
+wire [STAGES-1:0] exe_cready;
+wire [STAGES-1:0] bypass_next, dsp_ready, bypass_ready;
 reconf_dsp_ready #(.STAGES(STAGES)) ready_decode(
-    .clk(clk), .bypass_next(bypass_next), .local_ready(local_ready),
+    .clk(clk), .bypass_next(bypass_next), .dsp_ready(dsp_ready),
+    .last_bypass_ready(bypass_ready[STAGES-1]),
     .group_ready(exe_cready[STAGES-1:0]));
 
 localparam SLICE_CFG_W = CFG_WIDTH / STAGES;
@@ -188,9 +188,10 @@ for (i = 0; i < STAGES; i = i + 1) begin: dsp_stage
 		.exe_cfg_omux(elem_omux[i]),
         .exe_ready(pipe_stall_n),
 
-        .exe_cin_ready(exe_cready[i+1]),
+        .exe_cin_ready(exe_cready[i]),
         .exe_cout_ready(),
-        .local_cout_ready(local_ready[i]),
+        .dsp_cout_ready(dsp_ready[i]),
+        .bypass_cout_ready(bypass_ready[i]),
 
 		.alarm_ovf(alarm_ovf[i])
 	);
