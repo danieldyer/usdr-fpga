@@ -44,6 +44,10 @@ report_utilization -hierarchical -file "$output/synth_utilization.rpt"
 report_cdc -details -file "$output/synth_cdc.rpt"
 check_timing -verbose -file "$output/synth_check_timing.rpt"
 close_design
+# Spend implementation effort on the 250 MHz backpressure paths without
+# changing clocks, inserting latency, or relaxing timing constraints.
+set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE Explore [get_runs impl_1]
+set_property STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
 set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
 set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
 launch_runs impl_1 -to_step route_design -jobs $jobs
