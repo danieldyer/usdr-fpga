@@ -32,7 +32,9 @@ generate for(i=0;i<STAGES;i=i+1) begin: stage
         selected_dsp <= mask & ~bypass_next;
         selected_bypass <= mask[STAGES-1] && bypass_next[STAGES-1];
     end
-    assign group_ready[i] = |(selected_dsp & dsp_ready) ||
-                           (selected_bypass && last_bypass_ready);
+    // Exactly one downstream source is selected. Decode its stall condition
+    // so the local valid/ready terms can share a LUT with the selection bit.
+    assign group_ready[i] = !(|(selected_dsp & ~dsp_ready) ||
+                             (selected_bypass && !last_bypass_ready));
 end endgenerate
 endmodule
