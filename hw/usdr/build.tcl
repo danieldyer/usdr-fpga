@@ -14,6 +14,7 @@ set manifest [open "$output/build.txt" w]
 puts $manifest "Vivado: [version -short]"
 puts $manifest "Part: xc7a35tcpg236-2"
 puts $manifest "Role: $role"
+puts $manifest "Interface: PCIe only (USB2_PRESENT=0, PCIE_INIT_ONLY=1)"
 puts $manifest "Source: $here"
 puts $manifest "UTC: [clock format [clock seconds] -gmt 1 -format {%Y-%m-%dT%H:%M:%SZ}]"
 close $manifest
@@ -43,12 +44,15 @@ report_utilization -hierarchical -file "$output/synth_utilization.rpt"
 report_cdc -details -file "$output/synth_cdc.rpt"
 check_timing -verbose -file "$output/synth_check_timing.rpt"
 close_design
+set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
 launch_runs impl_1 -to_step route_design -jobs $jobs
 wait_on_run impl_1
 if {[get_property PROGRESS [get_runs impl_1]] ne "100%"} {error "Implementation failed"}
 open_run impl_1
+phys_opt_design -directive AggressiveExplore
 report_timing_summary -delay_type min_max -report_unconstrained -file "$output/timing.rpt"
-report_bus_skew -file "$output/bus_skew.rpt"
+set skew_report [report_bus_skew -return_string -file "$output/bus_skew.rpt"]
 report_cdc -details -file "$output/cdc.rpt"
 report_drc -file "$output/drc.rpt"
 report_methodology -file "$output/methodology.rpt"
@@ -60,6 +64,13 @@ write_checkpoint "$output/usdr_${role}_routed.dcp"
 foreach delay {max min} {
     set paths [get_timing_paths -delay_type $delay -max_paths 1]
     if {![llength $paths] || [get_property SLACK $paths] < 0} {error "$delay timing failed; inspect reports"}
+}
+if {[string match "*No bus skew constraints*" $skew_report] || [string match "*VIOLATED*" $skew_report]} {
+    error "Gray CDC skew constraints missing or failed; inspect reports"
+}
+set final_timing [report_timing_summary -return_string]
+if {[string match "*Timing constraints are not met*" $final_timing]} {
+    error "Timing or pulse-width checks failed; inspect reports"
 }
 write_bitstream -bin_file "$output/usdr_${role}.bit"
 puts "Built $output/usdr_${role}.bit. Review CDC, skew, DRC and unconstrained RF I/O before target use."

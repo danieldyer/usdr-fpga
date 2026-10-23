@@ -57,6 +57,7 @@ module reconf_dsp_elem #(
 
 	input                          exe_cin_ready,
 	output                         exe_cout_ready,
+    output                         local_cout_ready,
 
     output                         exe_ready, // 1 -- means command accepted and PC need to be updated
 
@@ -292,10 +293,11 @@ wire data_ovalid   = (exe_cfg_omux) ? din_valid && exe_pi_r : dsp_ovt[0];
 wire cmd_in_ready  = !exe_pi_r || din_valid;           // CMD isn't blocked by lacking of incoming data
 assign exe_ready   = cmd_in_ready && exe_cout_ready;
 assign din_ready   = exe_pi_r && exe_cout_ready;
+assign local_cout_ready = !BACKPRESSURE || !data_ovalid || data_oready;
 
 generate
 if (BACKPRESSURE) begin
-    wire cmd_out_ready    = (!data_ovalid || data_oready);   // CMD isn't blocked by output backpressure
+    wire cmd_out_ready    = local_cout_ready;   // CMD isn't blocked by output backpressure
     assign exe_cout_ready = (exe_cfg_omux && !LAST) ? exe_cin_ready : cmd_out_ready;
     assign alarm_ovf      = 1'b0;
 

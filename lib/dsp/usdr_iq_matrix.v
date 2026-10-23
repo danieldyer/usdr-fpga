@@ -10,22 +10,22 @@ module usdr_iq_matrix(
 reg signed [23:0] staged_i, staged_q, staged_qi;
 reg signed [23:0] ci, cq, cqi, ciq;
 reg signed [39:0] ii, qq, iq, qi;
-reg products_valid;
+reg products_valid, sums_valid;
+reg signed [40:0] rounded_i, rounded_q;
 wire signed [40:0] si = {ii[39],ii} + {iq[39],iq} + 41'sd4194304;
 wire signed [40:0] sq = {qq[39],qq} + {qi[39],qi} + 41'sd4194304;
 function [15:0] saturate;
     input signed [40:0] value;
     begin
-        if ((value >>> 23) > 32767) saturate = 16'h7fff;
-        else if ((value >>> 23) < -32768) saturate = 16'h8000;
-        else saturate = value[38:23];
+        if (value[40:38] == {3{value[38]}}) saturate = value[38:23];
+        else saturate = value[40] ? 16'h8000 : 16'h7fff;
     end
 endfunction
 always @(posedge clk) begin
     if (rst) begin
         ci <= 24'h7fffff; cq <= 24'h7fffff; cqi <= 0; ciq <= 0;
         staged_i <= 24'h7fffff; staged_q <= 24'h7fffff; staged_qi <= 0;
-        products_valid <= 0; out_valid <= 0; out_data <= 0; clipped <= 0;
+        products_valid <= 0; sums_valid <= 0; out_valid <= 0; out_data <= 0; clipped <= 0;
     end else begin
         if (cmd_valid && !cmd[31]) case (cmd[30:24])
             2: staged_i <= cmd[23:0];
@@ -40,10 +40,12 @@ always @(posedge clk) begin
             iq <= $signed(in_data[31:16]) * ciq;
             qi <= $signed(in_data[15:0]) * cqi;
         end
-        out_valid <= products_valid;
-        clipped <= products_valid && (((si >>> 23) > 32767) || ((si >>> 23) < -32768) ||
-                                     ((sq >>> 23) > 32767) || ((sq >>> 23) < -32768));
-        if (products_valid) out_data <= {saturate(sq), saturate(si)};
+        sums_valid <= products_valid;
+        rounded_i <= si; rounded_q <= sq;
+        out_valid <= sums_valid;
+        clipped <= sums_valid && (rounded_i[40:38] != {3{rounded_i[38]}} ||
+                                  rounded_q[40:38] != {3{rounded_q[38]}});
+        if (sums_valid) out_data <= {saturate(rounded_q), saturate(rounded_i)};
     end
 end
 endmodule

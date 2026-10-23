@@ -172,170 +172,36 @@ create_clock -name lms_txclk -period 5  [get_ports txclk_ref]
 create_clock -name sysref_clk -period 10 [get_ports sys_clk_p]
 
 
-#create_generated_clock -name clk_125mhz_x0y0 [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0]
-#create_generated_clock -name clk_250mhz_x0y0 [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT1]
-#create_generated_clock -name clk_dsp         [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT6]
-#
-#create_generated_clock -name clk_125mhz_mux_x0y0 \
-#                        -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I0] \
-#                        -divide_by 1 \
-#                        [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/O]
-
-#create_generated_clock -name clk_250mhz_mux_x0y0 \
-#                        -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I1] \
-#                        -divide_by 1 -add -master_clock [get_clocks clk_250mhz_x0y0] \
-#                        [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/O]
-
-
-#create_generated_clock -name clk_250mhz_mux_x0y0 \
-#                        -source [get_pins pclk_i1_bufgctrl.pclk_i1/I1] \
-#                        -divide_by 1 -add -master_clock [get_clocks -of [get_pins pclk_i1_bufgctrl.pclk_i1/I1]] \
-#                        [get_pins pclk_i1_bufgctrl.pclk_i1/O]
-                        
-#set_clock_groups -name pcieclkmux -physically_exclusive -group clk_125mhz_mux_x0y0 -group clk_250mhz_mux_x0y0
-
-#create_generated_clock -name userclk1 [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]
-
-#create_generated_clock -name clk_125mhz_x0y0 [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0]
-#create_generated_clock -name clk_250mhz_x0y0 [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT1]
-# create_generated_clock -name clk_dsp         [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT6]
-
+# The rev3 project fixes PCIE_INIT_ONLY=1 and removes the USB data core.
+# Both Gen1 and Gen2 pipe rates remain timed, as does the 250 MHz DSP clock.
 create_generated_clock -name clk_125mhz_x0y0_e \
-                       -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
-                       [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0]
-create_generated_clock -name clk_125mhz_x0y0_u \
-                       -master_clock [get_clocks usb_clk] \
-                       [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0]
-set_clock_groups -name clk_125mhz_x0y0 -physically_exclusive -group clk_125mhz_x0y0_e -group clk_125mhz_x0y0_u
+    -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
+    [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT0]
 create_generated_clock -name clk_250mhz_x0y0_e \
-                       -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
-                       [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT1]
-create_generated_clock -name clk_250mhz_x0y0_u \
-                       -master_clock [get_clocks usb_clk] \
-                       [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT1]
-set_clock_groups -name clk_250mhz_x0y0 -physically_exclusive -group clk_250mhz_x0y0_e -group clk_250mhz_x0y0_u
-
-
-
-create_generated_clock -name clk_125mhz_mux_x0y0 \
-                        -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I0] \
-                        -divide_by 1 \
-                        [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/O]
-
-create_generated_clock -name clk_250mhz_mux_x0y0_e \
-                        -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I1] \
-                        -divide_by 1  -add -master_clock [get_clocks clk_250mhz_x0y0_e] \
-                        [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/O]
-
-create_generated_clock -name clk_250mhz_mux_x0y0_u \
-                        -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I1] \
-                        -divide_by 1  -add -master_clock [get_clocks clk_250mhz_x0y0_u] \
-                        [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/O]
-
-#create_generated_clock -name clk_250mhz_mux_x0y0 \
-#                        -source [get_pins pclk_i1_bufgctrl.pclk_i1/I1] \
-#                        -divide_by 1 -add -master_clock [get_clocks -of [get_pins pclk_i1_bufgctrl.pclk_i1/I1]] \
-#                        [get_pins pclk_i1_bufgctrl.pclk_i1/O]
-                        
-#set_clock_groups -name pcieclkmux -physically_exclusive -group clk_125mhz_mux_x0y0 -group clk_250mhz_mux_x0y0_e -group clk_250mhz_mux_x0y0_u
-# The alternatives are exclusive with each other. A single -group would
-# instead cut their paths to every clock outside that group.
-set_clock_groups -name pcieclkmux -physically_exclusive \
-    -group [get_clocks clk_125mhz_mux_x0y0] \
-    -group [get_clocks clk_250mhz_mux_x0y0_e] \
-    -group [get_clocks clk_250mhz_mux_x0y0_u]
-
-
-#create_generated_clock -name userclk1 [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]
-
+    -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
+    [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT1]
 create_generated_clock -name userclk1 \
-                        -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
-                        [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]
-                        
-create_generated_clock -name userclk1_u \
-                        -master_clock [get_clocks usb_clk] \
-                        [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]                       
-                                     
-set_clock_groups -name userclkmux -physically_exclusive -group userclk1 -group userclk1_u
-                    
+    -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
+    [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT2]
 create_generated_clock -name clk_dsp_e \
-                       -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
-                       [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT6]
-create_generated_clock -name clk_dsp_u \
-                       -master_clock [get_clocks usb_clk] \
-                       [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT6]
-set_clock_groups -name clk_dsp -physically_exclusive -group clk_dsp_e -group clk_dsp_u
+    -master_clock [get_clocks -of [get_pins xilinx_pci_mmcm/mmcm_i/CLKIN2]] \
+    [get_pins xilinx_pci_mmcm/mmcm_i/CLKOUT6]
+create_generated_clock -name clk_125mhz_mux_x0y0 \
+    -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I0] \
+    -master_clock clk_125mhz_x0y0_e -divide_by 1 -add \
+    [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/O]
+create_generated_clock -name clk_250mhz_mux_x0y0_e \
+    -source [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/I1] \
+    -master_clock clk_250mhz_x0y0_e -divide_by 1 -add \
+    [get_pins xilinx_pci_mmcm/pclk_i1_bufgctrl.pclk_i1/O]
+set_clock_groups -name pcieclkmux -physically_exclusive \
+    -group clk_125mhz_mux_x0y0 -group clk_250mhz_mux_x0y0_e
 
-#########################################################
-
-
-set_false_path -from [get_clocks cfg_mclk] -to [get_clocks clk_125mhz_x0y0_e]
-set_false_path -from [get_clocks cfg_mclk] -to [get_clocks clk_125mhz_x0y0_u]
-set_false_path -from [get_clocks cfg_mclk] -to [get_clocks clk_250mhz_x0y0_e]
-set_false_path -from [get_clocks cfg_mclk] -to [get_clocks clk_250mhz_x0y0_u]
-
-
-#########################################################
-
-# RX/TX <-> DSP
-
-set_false_path -from [get_clocks clk_dsp_e] -to [get_clocks lms_rxclk]
-set_false_path -from [get_clocks lms_rxclk] -to [get_clocks clk_dsp_e]
-
-set_false_path -from [get_clocks clk_dsp_e] -to [get_clocks lms_txclk]
-set_false_path -from [get_clocks lms_txclk] -to [get_clocks clk_dsp_e]
-
-set_false_path -from [get_clocks clk_dsp_u] -to [get_clocks lms_rxclk]
-set_false_path -from [get_clocks lms_rxclk] -to [get_clocks clk_dsp_u]
-
-set_false_path -from [get_clocks clk_dsp_u] -to [get_clocks lms_txclk]
-set_false_path -from [get_clocks lms_txclk] -to [get_clocks clk_dsp_u]
-
-# MCFG <-> USERCLK
-
-set_false_path -from [get_clocks userclk1] -to [get_clocks cfg_mclk]
-set_false_path -from [get_clocks cfg_mclk] -to [get_clocks userclk1]
-
-set_false_path -from [get_clocks userclk1_u] -to [get_clocks cfg_mclk]
-set_false_path -from [get_clocks cfg_mclk] -to [get_clocks userclk1_u]
-
-# RX/TX <-> USERCLK
-
-set_false_path -from [get_clocks userclk1] -to [get_clocks lms_rxclk]
-set_false_path -from [get_clocks lms_rxclk] -to [get_clocks userclk1]
-
-set_false_path -from [get_clocks userclk1] -to [get_clocks lms_txclk]
-set_false_path -from [get_clocks lms_txclk] -to [get_clocks userclk1]
-
-set_false_path -from [get_clocks userclk1_u] -to [get_clocks lms_rxclk]
-set_false_path -from [get_clocks lms_rxclk] -to [get_clocks userclk1_u]
-
-set_false_path -from [get_clocks userclk1_u] -to [get_clocks lms_txclk]
-set_false_path -from [get_clocks lms_txclk] -to [get_clocks userclk1_u]
-
-
-# DSP <-> USERCLK
-
+# FIFO and ordered command bridges join the independent RF domains.
+set_clock_groups -asynchronous \
+    -group lms_rxclk -group lms_txclk \
+    -group [get_clocks {userclk1 clk_dsp_e clk_125mhz_x0y0_e clk_250mhz_x0y0_e clk_125mhz_mux_x0y0 clk_250mhz_mux_x0y0_e}]
+# The existing host/DSP boundary also uses asynchronous FIFOs. Gray buses
+# receive separate bus-skew limits in usdr_cdc.tcl.
 set_false_path -from [get_clocks userclk1] -to [get_clocks clk_dsp_e]
 set_false_path -from [get_clocks clk_dsp_e] -to [get_clocks userclk1]
-
-set_false_path -from [get_clocks userclk1_u] -to [get_clocks clk_dsp_e]
-set_false_path -from [get_clocks clk_dsp_e] -to [get_clocks userclk1_u]
-
-set_false_path -from [get_clocks userclk1] -to [get_clocks clk_dsp_u]
-set_false_path -from [get_clocks clk_dsp_u] -to [get_clocks userclk1]
-
-set_false_path -from [get_clocks userclk1_u] -to [get_clocks clk_dsp_u]
-set_false_path -from [get_clocks clk_dsp_u] -to [get_clocks userclk1_u]
-
-
-# USB CLK
-set_false_path -from [get_clocks userclk1] -to [get_clocks usb_clk]
-set_false_path -from [get_clocks usb_clk] -to [get_clocks userclk1]
-
-set_false_path -from [get_clocks userclk1_u] -to [get_clocks usb_clk]
-set_false_path -from [get_clocks usb_clk] -to [get_clocks userclk1_u]
-
-set_false_path -from [get_clocks usb_clk] -to [get_clocks cfg_mclk]
-set_false_path -from [get_clocks cfg_mclk] -to [get_clocks usb_clk]
-

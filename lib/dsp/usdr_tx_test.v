@@ -9,7 +9,7 @@ reg [31:0] phase, step;
 reg [15:0] phase_low;
 reg signed [15:0] amp_i, amp_q;
 wire signed [15:0] cosine, sine;
-usdr_cal_sincos lut(.phase(phase[31:20]), .cosine(cosine), .sine(sine));
+usdr_cal_sincos lut(.clk(clk), .phase(phase[31:20]), .cosine(cosine), .sine(sine));
 reg signed [31:0] ic, qs, is, qc;
 always @(posedge clk) begin
     ic <= amp_i * cosine; qs <= amp_q * sine;

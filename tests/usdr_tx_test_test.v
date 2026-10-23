@@ -12,7 +12,7 @@ always @(negedge clk) if(rotate)advance=~advance;
 reg signed [15:0] pi,pq,ci,cq;
 integer n;
 initial begin
- repeat(5)@(negedge clk);rst=0;
+ repeat(16)@(negedge clk);rst=0;
  write(32'h07042000);write(32'h07050000); // Amplitude 8192, Q=0.
  write(32'h08000000);write(32'h09004000); // Fs/4 phase increment.
  write(32'h07000001);rotate=1;
@@ -26,7 +26,7 @@ initial begin
   if(ci+pq < -1 || ci+pq > 1 || cq-pi < -1 || cq-pi > 1)$fatal(1,"DDS phase/cadence error");
   pi=ci;pq=cq;
  end
- rotate=0;advance=0;repeat(5)@(negedge clk);pi=$signed(data[15:0]);pq=$signed(data[31:16]);
+ rotate=0;advance=0;repeat(16)@(negedge clk);pi=$signed(data[15:0]);pq=$signed(data[31:16]);
  repeat(8)begin @(negedge clk);if(data!=={pq,pi})$fatal(1,"DDS advanced without a consumed pair");end
  write(32'h07000000);if(enabled)$fatal(1,"DDS did not disable");
  $display("PASS calibration DDS phase direction, paired-sample cadence, hold and disable");$finish;

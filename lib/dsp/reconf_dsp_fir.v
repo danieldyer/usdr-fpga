@@ -74,6 +74,10 @@ assign out_data = cascade_data[IN_WIDTH * CHANS * (STAGES + 1) - 1:IN_WIDTH * CH
 wire  [STAGES-1:0] elem_omux;
 wire  [STAGES  :0] exe_cready;
 assign exe_cready[STAGES] = out_ready;
+wire [STAGES-1:0] bypass_next, local_ready;
+reconf_dsp_ready #(.STAGES(STAGES)) ready_decode(
+    .clk(clk), .bypass_next(bypass_next), .local_ready(local_ready),
+    .group_ready(exe_cready[STAGES-1:0]));
 
 localparam SLICE_CFG_W = CFG_WIDTH / STAGES;
 
@@ -110,6 +114,7 @@ for (i = 0; i < STAGES; i = i + 1) begin: dsp_stage
 
 	assign cascade_data[IN_WIDTH * CHANS * (i + 2) - 1:IN_WIDTH * CHANS * (i + 1)] = pdata_out;
     assign elem_omux[i] = seq_omux_r;
+    assign bypass_next[i] = seq_omux;
 
 	srl_ra #(
 		.WIDTH(CMD_SLICE_WIDTH), .IN_WIDTH(SLICE_CFG_W), .DEEP(1 << SEQUENCER_DEEPBITS),
@@ -184,7 +189,8 @@ for (i = 0; i < STAGES; i = i + 1) begin: dsp_stage
         .exe_ready(pipe_stall_n),
 
         .exe_cin_ready(exe_cready[i+1]),
-        .exe_cout_ready(exe_cready[i]),
+        .exe_cout_ready(),
+        .local_cout_ready(local_ready[i]),
 
 		.alarm_ovf(alarm_ovf[i])
 	);

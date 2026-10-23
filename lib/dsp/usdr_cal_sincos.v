@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: CERN-OHL-P
 // Q1.15 quarter-wave ROM, 12-bit phase. Generated with round(32767*sin(pi*k/2048)).
-module usdr_cal_sincos(input [11:0] phase, output signed [15:0] cosine, output signed [15:0] sine);
+// Three clock stages: address, ROM, quadrant/sign. Throughput is one pair/clock.
+module usdr_cal_sincos(input clk, input [11:0] phase, output reg signed [15:0] cosine, output reg signed [15:0] sine);
 function [15:0] quarter; input [10:0] index; begin case(index)
 11'd0: quarter = 16'd0;
 11'd1: quarter = 16'd50;
@@ -1028,8 +1029,16 @@ function [15:0] quarter; input [10:0] index; begin case(index)
 11'd1023: quarter = 16'd32767;
 11'd1024: quarter = 16'd32767;
 default: quarter = 0; endcase end endfunction
-wire [15:0] s = quarter({1'b0, phase[9:0]});
-wire [15:0] c = quarter(11'd1024 - {1'b0,phase[9:0]});
-assign sine = phase[11] ? -(phase[10] ? c : s) : (phase[10] ? c : s);
-assign cosine = (phase[11] ^ phase[10]) ? -(phase[10] ? s : c) : (phase[10] ? s : c);
+reg [10:0] sin_index, cos_index;
+reg [1:0] quadrant0, quadrant1;
+reg [15:0] s, c;
+always @(posedge clk) begin
+    sin_index <= {1'b0, phase[9:0]};
+    cos_index <= 11'd1024 - {1'b0, phase[9:0]};
+    quadrant0 <= phase[11:10];
+    s <= quarter(sin_index); c <= quarter(cos_index);
+    quadrant1 <= quadrant0;
+    sine <= quadrant1[1] ? -(quadrant1[0] ? c : s) : (quadrant1[0] ? c : s);
+    cosine <= (quadrant1[1] ^ quadrant1[0]) ? -(quadrant1[0] ? s : c) : (quadrant1[0] ? s : c);
+end
 endmodule

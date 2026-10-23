@@ -19,11 +19,11 @@ task sample; input signed [15:0] i,q; begin
 end endtask
 integer n;
 initial begin
- repeat(5) @(negedge clk); rst=0;
+ repeat(16) @(negedge clk); rst=0;
  // Raw mean must work with no stream running, signed data, and gaps.
  write(32'h06000000);
  for(n=0;n<16;n=n+1) begin sample(100,-200); if(n%3==0) repeat(3) @(negedge clk); end
- repeat(5) @(negedge clk);
+ repeat(16) @(negedge clk);
  read_check(0,1); read_check(4,1600); read_check(5,-3200); read_check(1,0);
  for(n=0;n<8;n=n+1) sample(555,666);
  read_check(4,1600); read_check(0,1);
@@ -34,25 +34,25 @@ initial begin
  // Clipping invalidates a complete window.
  write(32'h06000000);
  for(n=0;n<16;n=n+1) sample(-32768,32752);
- repeat(4) @(negedge clk); read_check(0,2); read_check(1,1);
+ repeat(16) @(negedge clk); read_check(0,2); read_check(1,1);
  // Atomic coefficient commit, unity until fourth write.
  write(32'h02400000); write(32'h03400000); write(32'h04200000);
- sample(1000,2000); @(negedge clk);
+ sample(1000,2000); repeat(2) @(negedge clk);
  if (!cv || corrected !== {16'd2000,16'd1000}) $fatal(1,"matrix staging or valid alignment");
  write(32'h05200000);
- sample(1000,2000); @(negedge clk);
+ sample(1000,2000); repeat(2) @(negedge clk);
  if (!cv || corrected !== {16'd1250,16'd1000}) $fatal(1,"matrix cross terms");
  @(negedge clk); if(cv) $fatal(1,"valid extended across gap");
  // Saturation, no wraparound.
  write(32'h027fffff); write(32'h037fffff); write(32'h047fffff); write(32'h057fffff);
- sample(30000,30000); @(negedge clk);
+ sample(30000,30000); repeat(2) @(negedge clk);
  if(!clip || corrected !== 32'h7fff7fff) $fatal(1,"matrix saturation");
  @(negedge clk); rst=1; repeat(3) @(negedge clk); rst=0;
  read_check(0,0);
  // Coherent measurement mode with zero phase, unity matrix.
  write(32'h06080000); write(32'h06000000);
  for(n=0;n<16;n=n+1) sample(4096,-4096);
- repeat(5) @(negedge clk); read_check(4,65520); read_check(5,-65536);
+ repeat(16) @(negedge clk); read_check(4,65520); read_check(5,-65536);
  // Four quadrants at Fs/4, measured with -Fs/4. Phase advances per sample,
  // including gaps in valid, and both I/Q products must align.
  write(32'h06020000); write(32'h0603c000); write(32'h06000000);
@@ -65,7 +65,7 @@ initial begin
   endcase
   if(n%3==0) repeat(2) @(negedge clk);
  end
- repeat(5) @(negedge clk); read_check(4,131056); read_check(5,0);
+ repeat(16) @(negedge clk); read_check(4,131056); read_check(5,0);
  $display("PASS raw signed means, finite windows, reset, clipping, IQ commit/alignment/saturation"); $finish;
 end
 initial begin #200000; $fatal(1,"watchdog"); end

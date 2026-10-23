@@ -40,6 +40,8 @@ add_files -norecurse -fileset $obj [list \
 
 set_property include_dirs $root_dir/hw/ $obj
 set_property "top" "usdr_top_all" $obj
+# This project is the PCIe-only rev3 build; keep the top-level defaults reusable.
+set_property generic {USB2_PRESENT=0 PCIE_INIT_ONLY=1} $obj
 
 
 if {[string equal [get_filesets -quiet constrs_1] ""]} {
@@ -66,7 +68,8 @@ report_ip_status
 
 # Apply implementation CDC skew constraints after synthesis has established
 # concrete Gray register endpoints. Clock-group false paths do not override skew.
-set cdc_xdc [file normalize "$origin_dir/usdr_cdc.xdc"]
+set cdc_xdc [file normalize "$origin_dir/usdr_cdc.tcl"]
 add_files -norecurse -fileset constrs_1 $cdc_xdc
+set_property FILE_TYPE Tcl [get_files $cdc_xdc]
 set_property USED_IN_SYNTHESIS false [get_files $cdc_xdc]
 set_property PROCESSING_ORDER LATE [get_files $cdc_xdc]

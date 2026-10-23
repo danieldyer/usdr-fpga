@@ -23,7 +23,7 @@ foreach parent [dict keys $gray_groups] {
     set bound 1.0e6
     foreach clk $clocks {set bound [expr {min($bound, [get_property PERIOD $clk])}]}
     # Half a source period leaves margin against overlapping successive changes.
-    set_bus_skew [expr {$bound / 2.0}] -from $from -to $to
+    set_bus_skew [expr {$bound / 2.0}] -from $regs -to $to
     incr constrained
 }
 if {!$constrained} {error "No Gray CDC buses constrained"}
