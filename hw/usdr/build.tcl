@@ -6,6 +6,7 @@ set role [lindex $argv 1]
 set jobs [expr {$argc == 3 ? [lindex $argv 2] : 4}]
 if {$role ni {ram operational golden}} {error "Invalid bitstream role"}
 if {![string is integer -strict $jobs] || $jobs < 1} {error "Invalid job count"}
+set_param general.maxThreads [expr {min($jobs, 8)}]
 set here [file dirname [file normalize [info script]]]
 set usdr_project_dir "$output/project"
 if {[file exists "$usdr_project_dir/usdr.xpr"]} {error "Output project exists; choose a new output directory"}
@@ -46,7 +47,7 @@ check_timing -verbose -file "$output/synth_check_timing.rpt"
 close_design
 # Spend implementation effort on the 250 MHz backpressure paths without
 # changing clocks, inserting latency, or relaxing timing constraints.
-set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE Explore [get_runs impl_1]
+set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE ExtraNetDelay_high [get_runs impl_1]
 set_property STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
 set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
 set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]

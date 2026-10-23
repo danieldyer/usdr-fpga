@@ -9,7 +9,9 @@ With Vivado on PATH:
 
 The script hashes source inputs, records the Git revision/diff and tool version,
 upgrades imported IP in the output project, and runs synthesis/route/bitstream.
-It saves timing, utilization, CDC, bus-skew, DRC and methodology reports. It does
+It uses ExtraNetDelay_high placement with AggressiveExplore physical optimization
+and routing, with up to --jobs tool threads (maximum 8). It saves timing,
+utilization, CDC, bus-skew, DRC and methodology reports. It does
 not connect to a board or write flash. A failed run retains its diagnostics.
 
 ram disables automatic reboot/watchdog for a volatile bring-up image. operational
